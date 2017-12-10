@@ -4,13 +4,13 @@ import tweepy
 import config
 import sqlite3
 
+SUBREDDIT = "argentina"
 # DATABASE Initialization
-conn = sqlite3.connect('replies.db')
+conn = sqlite3.connect('replies5.db')
 c = conn.cursor()
-
 # Reddit API initialization
 bot = praw.Reddit('TwArgINI')
-subreddit = bot.subreddit('twargbot')
+subreddit = bot.subreddit(SUBREDDIT)
 
 
 # Twitter API Initialization
@@ -40,30 +40,32 @@ def extract_status_id(twurl):
 def add_reply_to_db(post):
     # añado el id del post a reddit (puedo contestar dos veces el mismo twitt si lo publican dos diferentes)
     if not in_database(post):
-        c.execute('INSERT INTO replies VALUES (?)', (post.id,))
+        # post_id text, author text, url text, title text
+        c.execute('INSERT INTO replies5 VALUES (?,?,?,?)', (post.id, str(post.author), post.url, post.title))
     conn.commit()
 
 
 def comment_post(apost):
+    print("Preparandome para comentar..")
     status_id = extract_status_id(apost.url)
     status = twitter.get_status(status_id, tweet_mode="extended")
     tweet = status.full_text
     print("El tweet es: \n" + tweet)
-    ## reformatear comentario con detalles
-    detailed_tweet = tweet + "\n\n\n^[Creator](www.google.com.ar) ^| ^[Creator](www.google.com.ar)"
+    detailed_tweet = "^(Hola, Soy TwargBot y existo para comentar con el texto del twitt linkeado) \n\n\n\n " + ">"+tweet + "\n\n &nbsp; \n\n^[Source](https://github.com/Ambro17/TwitterBot) ^| ^[Creador](https://github.com/Ambro17)"
     apost.reply(detailed_tweet)
+    print("Comenté  con éxito.")
     add_reply_to_db(apost)
-    # comentarlo en el post
+
 
 def there_is_a_match(arg):
     return arg is not None
 
 def in_database(post):
-    c.execute("SELECT * FROM replies WHERE EXISTS (SELECT 1 FROM replies WHERE status_id = (?))", (post.id,))
+    c.execute("SELECT * FROM replies5 WHERE EXISTS (SELECT 1 FROM replies5 WHERE post_id = (?))", (post.id,))
     return there_is_a_match(c.fetchone())
 
 
-for post in subreddit.new(limit=10):
+for post in subreddit.new(limit=30):
     title = post.title
     url = post.url
     print("Analizando post..." + post.title)
@@ -72,7 +74,7 @@ for post in subreddit.new(limit=10):
         comment_post(post)
         print("Title: ", post.title)
         print("self.url: ", post.url)
-        print("\n*50")
+        print("-"*50)
     print("Fin análisis post " + str(post))
 conn.close()
 # TODO: Format reply with source, Creator
