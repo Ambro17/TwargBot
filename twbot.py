@@ -5,6 +5,8 @@ import config
 import sqlite3
 
 SUBREDDIT = "argentina"
+HEADER = "^(Hola, Soy TwargBot y existo para comentar con el texto del twitt linkeado) \n\n\n\n "
+FOOTER = "\n\n &nbsp; \n\n^[Source](https://github.com/Ambro17/TwitterBot) ^| ^[Creador](https://github.com/Ambro17)"
 # DATABASE Initialization
 conn = sqlite3.connect('replies5.db')
 c = conn.cursor()
@@ -37,21 +39,15 @@ def extract_status_id(twurl):
     status_id = splitted_url[-1] # obtengo ultimo elemento
     return status_id
 
-def add_reply_to_db(post):
-    # añado el id del post a reddit (puedo contestar dos veces el mismo twitt si lo publican dos diferentes)
-    if not in_database(post):
-        # post_id text, author text, url text, title text
-        c.execute('INSERT INTO replies5 VALUES (?,?,?,?)', (post.id, str(post.author), post.url, post.title))
-    conn.commit()
-
-
+def quote(text):
+    return ">"+text
 def comment_post(apost):
     print("Preparandome para comentar..")
     status_id = extract_status_id(apost.url)
     status = twitter.get_status(status_id, tweet_mode="extended")
     tweet = status.full_text
     print("El tweet es: \n" + tweet)
-    detailed_tweet = "^(Hola, Soy TwargBot y existo para comentar con el texto del twitt linkeado) \n\n\n\n " + ">"+tweet + "\n\n &nbsp; \n\n^[Source](https://github.com/Ambro17/TwitterBot) ^| ^[Creador](https://github.com/Ambro17)"
+    detailed_tweet = HEADER + quote(tweet) + FOOTER
     apost.reply(detailed_tweet)
     print("Comenté  con éxito.")
     add_reply_to_db(apost)
@@ -60,23 +56,50 @@ def comment_post(apost):
 def there_is_a_match(arg):
     return arg is not None
 
-def in_database(post):
+def replied_db(post):
     c.execute("SELECT * FROM replies5 WHERE EXISTS (SELECT 1 FROM replies5 WHERE post_id = (?))", (post.id,))
     return there_is_a_match(c.fetchone())
 
+def on_visited_db(post):
+    c.execute("SELECT * FROM visited WHERE EXISTS (SELECT 1 FROM visited WHERE post_id = (?))", (post.id,))
+    return there_is_a_match(c.fetchone())
 
-for post in subreddit.new(limit=30):
-    title = post.title
-    url = post.url
-    print("Analizando post..." + post.title)
-    # TODO: anadir and not already_visited(post)
-    if is_tweet(post) and not in_database(post):
-        comment_post(post)
-        print("Title: ", post.title)
-        print("self.url: ", post.url)
-        print("-"*50)
-    print("Fin análisis post " + str(post))
-conn.close()
-# TODO: Format reply with source, Creator
-# TODO: cron to execute every even minutes for searching and every  odd minute for replying
+# intento de gralizacion
+def post_in_db(post,dbname):
+    onepost_id = post.id
+    query = f"SELECT * FROM {dbname} WHERE EXISTS (SELECT 1 FROM {dbname} WHERE post_id = {onepost_id}"
+    c.execute(query)
+    return there_is_a_match(c.fetchone())
+
+
+
+def add_reply_to_db(post):
+    if not replied_db(post):
+        # post_id text, author text, url text, title text
+        c.execute('INSERT INTO replies5 VALUES (?,?,?,?)', (post.id, str(post.author), post.url, post.title))
+    conn.commit()
+
+
+def add_to_visited(post):
+    if not on_visited_db(post):
+        c.execute('INSERT INTO visited VALUES (?,?,?,?)', (post.id, str(post.author),post.url,post.title))
+    conn.commit()
+
+
+
+for i, post in enumerate(subreddit.new(limit=10)):
+    if not on_visited_db(post):
+        add_to_visited(post)
+        title = post.title
+        url = post.url
+        print(f"Analizando post {i}: {title}...")
+        if is_tweet(post) and not replied_db(post):
+            comment_post(post)
+            print("Title: ", post.title)
+            print("self.url: ", post.url)
+            print("----------------------")
+        print(f"Fin análisis post {i}")
+    conn.close()
+# TODO: no iterar en el new con los ya visitados. No lo soporta la API, filtro a lo macho 
+# TODO: execute every X minutes to fetch new posts for replying
 
