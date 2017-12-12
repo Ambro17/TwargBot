@@ -85,21 +85,26 @@ def add_to_visited(post):
         c.execute('INSERT INTO visited VALUES (?,?,?,?)', (post.id, str(post.author),post.url,post.title))
     conn.commit()
 
-
-
-for i, post in enumerate(subreddit.new(limit=10)):
-    if not on_visited_db(post):
-        add_to_visited(post)
-        title = post.title
-        url = post.url
-        print(f"Analizando post {i}: {title}...")
-        if is_tweet(post) and not replied_db(post):
-            comment_post(post)
-            print("Title: ", post.title)
-            print("self.url: ", post.url)
-            print("----------------------")
-        print(f"Fin análisis post {i}")
+def buscar_tweets():
+    print("Buscando tweets...")
+    for i, post in enumerate(subreddit.new(limit=10)):
+        if not on_visited_db(post):
+            add_to_visited(post)
+            title = post.title
+            url = post.url
+            print(f"Analizando post {i}: {title}...")
+            if is_tweet(post) and not replied_db(post):
+                comment_post(post)
+                print("Title: ", post.title)
+                print("self.url: ", post.url)
+                print("----------------------")
+            print(f"Fin análisis post {i}")
     conn.close()
-# TODO: no iterar en el new con los ya visitados. No lo soporta la API, filtro a lo macho 
+    print("Finalizó mi busqueda")
+
+
+# MAIN
+buscar_tweets()
+
 # TODO: execute every X minutes to fetch new posts for replying
 
