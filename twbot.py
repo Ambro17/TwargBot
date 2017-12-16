@@ -1,8 +1,8 @@
 import praw
 import re
 import tweepy
-import config
 import sqlite3
+import config
 
 SUBREDDIT = "argentina"
 HEADER = "^(Hola, Soy TwargBot y existo para comentar con el texto del twitt linkeado) \n\n\n\n "
@@ -39,8 +39,11 @@ def extract_status_id(twurl):
     status_id = splitted_url[-1] # obtengo ultimo elemento
     return status_id
 
+
 def quote(text):
     return ">"+text
+
+
 def comment_post(apost):
     print("Preparandome para comentar..")
     status_id = extract_status_id(apost.url)
@@ -56,21 +59,15 @@ def comment_post(apost):
 def there_is_a_match(arg):
     return arg is not None
 
+
 def replied_db(post):
     c.execute("SELECT * FROM replies5 WHERE EXISTS (SELECT 1 FROM replies5 WHERE post_id = (?))", (post.id,))
     return there_is_a_match(c.fetchone())
 
+
 def on_visited_db(post):
     c.execute("SELECT * FROM visited WHERE EXISTS (SELECT 1 FROM visited WHERE post_id = (?))", (post.id,))
     return there_is_a_match(c.fetchone())
-
-# intento de gralizacion
-def post_in_db(post,dbname):
-    onepost_id = post.id
-    query = f"SELECT * FROM {dbname} WHERE EXISTS (SELECT 1 FROM {dbname} WHERE post_id = {onepost_id}"
-    c.execute(query)
-    return there_is_a_match(c.fetchone())
-
 
 
 def add_reply_to_db(post):
@@ -84,6 +81,7 @@ def add_to_visited(post):
     if not on_visited_db(post):
         c.execute('INSERT INTO visited VALUES (?,?,?,?)', (post.id, str(post.author),post.url,post.title))
     conn.commit()
+
 
 def buscar_tweets():
     print("Buscando tweets...")
