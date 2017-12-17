@@ -12,13 +12,15 @@ logger = logging.getLogger(__name__)
 SUBREDDIT = "twargbot"
 HEADER = "^(Hola, Soy TwargBot y existo para comentar el tweet linkeado y ahorrarte unos clicks) \n\n\n\n "
 FOOTER = "\n\n &nbsp; \n\n^[Source](https://github.com/Ambro17/TwitterBot) ^| ^[Creador](https://github.com/Ambro17)"
+
 # DATABASE Initialization
 conn = sqlite3.connect('replies5.db')
 c = conn.cursor()
+
 # Reddit API initialization
 bot = praw.Reddit('TwArgINI')
 subreddit = bot.subreddit(SUBREDDIT)
-
+#c.execute("CREATE TABLE visited2 (post_id text, author text, url text, title text)")
 
 # Twitter API Initialization
 auth = tweepy.OAuthHandler(config.API_KEY, config.API_SECRET)
@@ -93,12 +95,19 @@ def comment_post(apost):
     print("Preparandome para comentar..")
     status_id = extract_status_id(apost.url)
     status = twitter.get_status(status_id, tweet_mode="extended")
+    print(vars(status))
     tweet = status.full_text
     print("El tweet que lei del link es: \n" + tweet)
     parsed_tweet = parse_tweet(tweet)
-    apost.reply(parsed_tweet)
-    print("Comenté  con éxito.")
-    add_to_replied(apost)
+    try:
+        apost.reply(parsed_tweet)
+        print("Comenté  con éxito.")
+        add_to_replied(apost)
+        time.sleep(30) # api puta
+        print("Sleeping 30 seconds to avoid exceding rate limit")
+    except praw.exceptions.APIException as e:
+        logger.debug("Couldn't comment on post https://www.reddit.com/{0}".format(apost.id))
+        logger.debug(f"APIException: {vars(e)}")
 
 
 def there_is_a_match(arg):
@@ -111,7 +120,7 @@ def replied_db(post):
 
 
 def on_visited_db(post):
-    c.execute("SELECT * FROM visited WHERE EXISTS (SELECT 1 FROM visited WHERE post_id = (?))", (post.id,))
+    c.execute("SELECT * FROM visited2 WHERE EXISTS (SELECT 1 FROM visited2 WHERE post_id = (?))", (post.id,))
     return there_is_a_match(c.fetchone())
 
 
@@ -124,14 +133,13 @@ def add_to_replied(post):
 
 def add_to_visited(post):
     if not on_visited_db(post):
-        c.execute('INSERT INTO visited VALUES (?,?,?,?)', (post.id, str(post.author),post.url,post.title))
+        c.execute('INSERT INTO visited2 VALUES (?,?,?,?)', (post.id, str(post.author),post.url,post.title))
     conn.commit()
 
 
-def buscar_tweets(cant=100):
-    print(f"Buscando tweets en r/{SUBREDDIT}...")
+def buscar_tweets(cant=10):
+    print(f"Buscando tweets en /r/{SUBREDDIT}...")
     for i, post in enumerate(subreddit.new(limit=cant)):
-        time.sleep(2)
         if not on_visited_db(post):
             title = post.title
             print(f"Analizando post {i+1}: {title}...")
@@ -143,16 +151,14 @@ def buscar_tweets(cant=100):
             add_to_visited(post)
             print(f"Fin análisis post {i+1}")
         else:
-            post.id
             print(f"Ya visite el post https://www.reddit.com/{post.id}")
     conn.close()
     print("Finalizó mi busqueda")
 
 
 # MAIN
-buscar_tweets(100)
-
-# TODO; if it has a link expand it, then post it
+buscar_tweets()
+# TODO: post tweet with author.
 # TODO: execute every X minutes to fetch new posts for replying
 
 
