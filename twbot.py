@@ -5,9 +5,12 @@ import sqlite3
 import config
 import time
 import requests
+import logging
 
-SUBREDDIT = "argentina"
-HEADER = "^(Hola, Soy TwargBot y existo para comentar con el texto del twitt linkeado) \n\n\n\n "
+logger = logging.getLogger(__name__)
+
+SUBREDDIT = "twargbot"
+HEADER = "^(Hola, Soy TwargBot y existo para comentar el tweet linkeado y ahorrarte unos clicks) \n\n\n\n "
 FOOTER = "\n\n &nbsp; \n\n^[Source](https://github.com/Ambro17/TwitterBot) ^| ^[Creador](https://github.com/Ambro17)"
 # DATABASE Initialization
 conn = sqlite3.connect('replies5.db')
@@ -125,29 +128,29 @@ def add_to_visited(post):
     conn.commit()
 
 
-def buscar_tweets(cant):
-    print("Buscando tweets...")
+def buscar_tweets(cant=100):
+    print(f"Buscando tweets en r/{SUBREDDIT}...")
     for i, post in enumerate(subreddit.new(limit=cant)):
-        time.sleep(1)
+        time.sleep(2)
         if not on_visited_db(post):
             title = post.title
             print(f"Analizando post {i+1}: {title}...")
             if is_tweet(post) and not replied_db(post):
                 comment_post(post)
                 print("Title: ", post.title)
-                print("self.url: ", post.url)
+                print(f"Link al post: https://www.reddit.com/{post}")
                 print("----------------------")
             add_to_visited(post)
             print(f"Fin análisis post {i+1}")
         else:
             post.id
-            print(f"Ya visite el post {post.id}")
+            print(f"Ya visite el post https://www.reddit.com/{post.id}")
     conn.close()
     print("Finalizó mi busqueda")
 
 
 # MAIN
-buscar_tweets(50)
+buscar_tweets(100)
 
 # TODO; if it has a link expand it, then post it
 # TODO: execute every X minutes to fetch new posts for replying
