@@ -9,9 +9,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-SUBREDDIT = "twargbot"
+SUBREDDIT = "argentina"
 HEADER = "^(Hola, Soy TwargBot y existo para comentar el tweet linkeado y ahorrarte unos clicks) \n\n\n\n "
-FOOTER = "\n\n &nbsp; \n\n^[Source](https://github.com/Ambro17/TwitterBot) ^| ^[Creador](https://github.com/Ambro17)"
+FOOTER = "\n\n &nbsp; \n\n^[Source](https://github.com/Ambro17/TwitterBot) ^| " \
+         "^[Creador](https://github.com/Ambro17) ^| " \
+         "^[Feedback](https://docs.google.com/forms/d/e/1FAIpQLSd5MkOrULTiVjjFWCqAXkJFvVU034vE44l19ot72rxYqE096Q/viewform)"
 
 # DATABASE Initialization
 conn = sqlite3.connect('replies5.db')
@@ -19,8 +21,8 @@ c = conn.cursor()
 
 # Reddit API initialization
 bot = praw.Reddit('TwArgINI')
-subreddit = bot.subreddit(SUBREDDIT)
-#c.execute("CREATE TABLE visited2 (post_id text, author text, url text, title text)")
+
+#c.execute("CREATE TABLE visited3 (post_id text, author text, url text, title text)")
 
 # Twitter API Initialization
 auth = tweepy.OAuthHandler(config.API_KEY, config.API_SECRET)
@@ -94,20 +96,22 @@ def parse_tweet(strtweet):
 def comment_post(apost):
     print("Preparandome para comentar..")
     status_id = extract_status_id(apost.url)
-    status = twitter.get_status(status_id, tweet_mode="extended")
-    print(vars(status))
-    tweet = status.full_text
-    print("El tweet que lei del link es: \n" + tweet)
-    parsed_tweet = parse_tweet(tweet)
     try:
+        status = twitter.get_status(status_id, tweet_mode="extended")
+        tweet = status.full_text
+        #  print("El tweet que lei del link es: \n" + tweet)
+        parsed_tweet = parse_tweet(tweet)
         apost.reply(parsed_tweet)
         print("Comenté  con éxito.")
         add_to_replied(apost)
-        time.sleep(30) # api puta
         print("Sleeping 30 seconds to avoid exceding rate limit")
+        time.sleep(30) # api puta
+    except tweepy.error.TweepError as e:
+        print(f"Status {status_id} could not be found. Maybe it was deleted?")
+        print(f"Exception code {e.api_code}, description: {e.reason}")
     except praw.exceptions.APIException as e:
-        logger.debug("Couldn't comment on post https://www.reddit.com/{0}".format(apost.id))
-        logger.debug(f"APIException: {vars(e)}")
+        print("Couldn't reply on post https://www.reddit.com/{0}".format(apost.id))
+        print(f"APIException: {e.reason}")
 
 
 def there_is_a_match(arg):
@@ -120,7 +124,7 @@ def replied_db(post):
 
 
 def on_visited_db(post):
-    c.execute("SELECT * FROM visited2 WHERE EXISTS (SELECT 1 FROM visited2 WHERE post_id = (?))", (post.id,))
+    c.execute("SELECT * FROM visited3 WHERE EXISTS (SELECT 1 FROM visited3 WHERE post_id = (?))", (post.id,))
     return there_is_a_match(c.fetchone())
 
 
@@ -133,31 +137,36 @@ def add_to_replied(post):
 
 def add_to_visited(post):
     if not on_visited_db(post):
-        c.execute('INSERT INTO visited2 VALUES (?,?,?,?)', (post.id, str(post.author),post.url,post.title))
+        c.execute('INSERT INTO visited3 VALUES (?,?,?,?)', (post.id, str(post.author),post.url,post.title))
     conn.commit()
 
 
-def buscar_tweets(cant=10):
-    print(f"Buscando tweets en /r/{SUBREDDIT}...")
+def buscar_tweets(subreddit='twargbot', cant=10):
+    subreddit = bot.subreddit(subreddit)
+    print(f"Buscando tweets en los primeros {cant} posts de /r/{subreddit}...")
     for i, post in enumerate(subreddit.new(limit=cant)):
         if not on_visited_db(post):
             title = post.title
             print(f"Analizando post {i+1}: {title}...")
             if is_tweet(post) and not replied_db(post):
-                comment_post(post)
-                print("Title: ", post.title)
-                print(f"Link al post: https://www.reddit.com/{post}")
-                print("----------------------")
-            add_to_visited(post)
+                try:
+                    comment_post(post)
+                    print(f"Link al post: https://www.reddit.com/{post}")
+                    print("----------------------")
+                    add_to_visited(post)
+                except (tweepy.error.TweepError, praw.exceptions.APIException) as e:
+                    print(e)
+
             print(f"Fin análisis post {i+1}")
         else:
-            print(f"Ya visite el post https://www.reddit.com/{post.id}")
+            print(f"{i}: Ya visite el post {post.title} https://www.reddit.com/{post.id}")
     conn.close()
     print("Finalizó mi busqueda")
 
 
 # MAIN
 buscar_tweets()
+# TODO: Review exception handling
 # TODO: post tweet with author.
 # TODO: execute every X minutes to fetch new posts for replying
 
