@@ -7,7 +7,10 @@ import time
 import requests
 import logging
 
+# set up logging instance
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+logger.addHandler(logging.StreamHandler())
 
 SUBREDDIT = "argentina"
 HEADER = "^(Hola, Soy TwargBot y existo para comentar el tweet linkeado y ahorrarte unos clicks) \n\n\n\n "
@@ -30,6 +33,7 @@ auth.set_access_token(config.TOKEN, config.TOKEN_SECRET)
 twitter = tweepy.API(auth)
 
 # Compile regex to match twitter urls
+REDDIT_URL = 'https://www.reddit.com/'
 TWITTER_REGEX_URL = re.compile("https://twitter\.com/.*")
 SHORTENER_URLS = re.compile("(https?:\/\/)(t\.co|bit.ly)(\/[a-zA-Z0-9]*)")
 
@@ -57,6 +61,7 @@ def extract_status_id(twurl):
     Dada una url (str) de la forma "<protocol>//<domain>/<user>/<status>/<statusid>"
     obtengo el ultimo elemento del string separado por '/' que resulta ser el <statusid>
     """
+    logger.debug(f"Intentando extraer status de {twurl}")
     splitted_url = re.split('/', twurl)
     status_id = splitted_url[-1] # obtengo ultimo elemento
     return status_id
@@ -72,12 +77,11 @@ def reddit_format_url(bare_url):
 
 def expand_tweet_urls(original_str):
     """
-        Si el tweet tiene una shortened url, la reemplazo
-        por su full url. Si no, la devuelvo sin modificar
+        Si el tweet tiene 'n' shortened urls, las reemplazo
+        por su full url, y la agrego el formato de reddit [Visible](Link)
+        Si no tiene shortened urls, la devuelvo sin modificar
     """
-    #matches = SHORTENER_URLS.findall(original_str)
     for match in SHORTENER_URLS.finditer(original_str):
-        # for mathcobj in match -- falla porque siempre reemplaza la inmodificada
         short_url = match.group(1)+match.group(2)+match.group(3)
         expanded_url = unshorten_url(short_url)
         formatted_url = reddit_format_url(expanded_url)
@@ -88,30 +92,31 @@ def expand_tweet_urls(original_str):
 
 def parse_tweet(strtweet):
     expanded_tw = expand_tweet_urls(strtweet)
-    # paso shurl a full url
     expanded_tw = HEADER + quote(expanded_tw) + FOOTER
     return expanded_tw
 
 
 def comment_post(apost):
-    print("Preparandome para comentar..")
+    logger.info("Preparandome para comentar..")
     status_id = extract_status_id(apost.url)
     try:
         status = twitter.get_status(status_id, tweet_mode="extended")
         tweet = status.full_text
-        #  print("El tweet que lei del link es: \n" + tweet)
+        logger.info(f"El tweet que lei del link es: \n {tweet}")
         parsed_tweet = parse_tweet(tweet)
         apost.reply(parsed_tweet)
-        print("Comenté  con éxito.")
+        logger.info("Comenté  con éxito.")
         add_to_replied(apost)
-        print("Sleeping 30 seconds to avoid exceding rate limit")
-        time.sleep(30) # api puta
-    except tweepy.error.TweepError as e:
+        logger.info("Sleeping 30 seconds to avoid exceding rate limit")
+        time.sleep(30)
+
+    except tweepy.error.TweepError as StatusNotFound:
         print(f"Status {status_id} could not be found. Maybe it was deleted?")
-        print(f"Exception code {e.api_code}, description: {e.reason}")
-    except praw.exceptions.APIException as e:
-        print("Couldn't reply on post https://www.reddit.com/{0}".format(apost.id))
-        print(f"APIException: {e.reason}")
+        print(f"Exception code {StatusNotFound.api_code}, description: {StatusNotFound.reason}")
+
+    except praw.exceptions.APIException as RateLimit:
+        print(f"Couldn't reply on post {REDDIT_URL}{apost.id}")
+        print(f"APIException: {RateLimit.reason}")
 
 
 def there_is_a_match(arg):
@@ -141,9 +146,9 @@ def add_to_visited(post):
     conn.commit()
 
 
-def buscar_tweets(subreddit='twargbot', cant=10):
+def buscar_tweets(subreddit='twargbot', cant=20):
     subreddit = bot.subreddit(subreddit)
-    print(f"Buscando tweets en los primeros {cant} posts de /r/{subreddit}...")
+    logger.info(f"Buscando tweets en los primeros {cant} posts de /r/{subreddit}...")
     for i, post in enumerate(subreddit.new(limit=cant)):
         if not on_visited_db(post):
             title = post.title
@@ -153,19 +158,19 @@ def buscar_tweets(subreddit='twargbot', cant=10):
                     comment_post(post)
                     print(f"Link al post: https://www.reddit.com/{post}")
                     print("----------------------")
-                    add_to_visited(post)
                 except (tweepy.error.TweepError, praw.exceptions.APIException) as e:
-                    print(e)
+                    logger.error("No pude comentar el post {post.title} con link ")
 
+            add_to_visited(post) # TODO; los agrega a pesar de haber fallado, guardar registro de fallidos
             print(f"Fin análisis post {i+1}")
         else:
-            print(f"{i}: Ya visite el post {post.title} https://www.reddit.com/{post.id}")
+            logger.info(f"{i}: Ya visite el post \"{post.title}\" (https://www.reddit.com/{post.id})")
     conn.close()
-    print("Finalizó mi busqueda")
+    logger.info("Finalizó mi búsqueda.")
 
 
 # MAIN
-buscar_tweets()
+buscar_tweets(cant=20)
 # TODO: Review exception handling
 # TODO: post tweet with author.
 # TODO: execute every X minutes to fetch new posts for replying
