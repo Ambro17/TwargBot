@@ -1,0 +1,11 @@
+1. Providing support for multiple images and uploading to imgur album is considered too costly for little benefit
+   (i mean, there are really few tweets with more than one image)
+   I prefer delaying that feature for when TwArgBot is more polished.
+   Decision: Post only one imgur link for an image on a tweet.
+   Reason: Prioritizing other features.
+
+2. Deprecated temporarily expand_tweet_urls. I did it only to avoid being banned
+   by automoderator. With new def 'get_image_url' i solve the same problem, adding some asked functionality.
+   (Avoid posting link to twitter images and instead post link to imgur)
+
+
