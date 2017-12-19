@@ -16,7 +16,8 @@ SUBREDDIT = "argentina"
 HEADER = "^(Hola, Soy TwargBot y existo para comentar el tweet linkeado y ahorrarte unos clicks) \n\n\n\n "
 FOOTER = "\n\n &nbsp; \n\n^[Source](https://github.com/Ambro17/TwitterBot) ^| " \
          "^[Creador](https://github.com/Ambro17) ^| " \
-         "^[Feedback](https://docs.google.com/forms/d/e/1FAIpQLSd5MkOrULTiVjjFWCqAXkJFvVU034vE44l19ot72rxYqE096Q/viewform)"
+         "^[Feedback](https://docs.google.com/forms/d/e/1FAIpQLSd5MkOrULTiVjjFWCqAXkJFvVU034vE44l19ot72rxYqE096Q/viewform) ^| " \
+         " ^(Ahora aprendí poner el autor del twitt!)"
 
 # DATABASE Initialization
 conn = sqlite3.connect('replies5.db')
@@ -109,7 +110,7 @@ def extract_status_id(twurl):
 
 
 def quote(text):
-    return ">" + text
+    return f">{text}"
 
 
 def get_image_url(status):
@@ -136,7 +137,8 @@ def upload_to_imgur(url):
 
 
 def sign(twstr):
-    return HEADER + quote(twstr) + FOOTER
+    twstr2 = HEADER + twstr + FOOTER
+    return twstr2
 
 
 def reddit_format_url(bare_url, visible_name):
@@ -234,27 +236,33 @@ def add_media_to_tweet(imgs, vids, original_tweet):
     return original_tweet
 
 
+def get_author(status):
+    return status.user.name
+
+def wrap_author(author, twstr):
+    return f">**{author}**\n\n >{twstr}"
+
 def parse_tweet(status):
     videos, imagenes = get_links(status)
     print("Ya obtuve videos e imagenes")
     clean_tweet = remove_shortened_links(status)
     tweet = add_media_to_tweet(videos, imagenes, clean_tweet)
-    signed_tw = sign(tweet)
+    author = get_author(status)
+    tweet_auth = wrap_author(author, tweet)
+    signed_tw = sign(tweet_auth)
     return signed_tw
 
 
 def read_tweet(post):
     status_id = extract_status_id(post.url)
     status = twitter.get_status(status_id, tweet_mode="extended")
-    logger.info("Tengo la instancia de status")
-    parsed_tweet = parse_tweet(status)
-    logger.info("Tweet parseado")
-    return parsed_tweet
+    comment_tweet = parse_tweet(status)
+    return comment_tweet
 
 
 def comment_post2(post, tweetstr):
     post.reply(tweetstr)
-    #add_to_replied(post)
+    add_to_replied(post)
 
 
 ### DEPRECATED - delegated into read_tweet and comment_tweet
@@ -302,7 +310,7 @@ def buscar_tweets(subreddit='twargbot', cant=5):
                     logger.error(f"No pude comentar el post {post.title} con link https://www.reddit.com/{post} ")
                     logger.error(e)
 
-            #add_to_visited(post)
+            add_to_visited(post)
         else:
             logger.info(f"{i}: Ya visite el post \"{post.title}\" https://www.reddit.com/{post.id}")
     conn.close()
@@ -310,8 +318,8 @@ def buscar_tweets(subreddit='twargbot', cant=5):
 
 
 # MAIN
-buscar_tweets(cant=5)
-logger.error("ESTAN COMENTADOS LOS SAVE TO DB")
+buscar_tweets(subreddit="twargbot",cant=5)
+logger.error("AÑADILO A LA BASE DE REPLICADOS!!!")
 # TODO: Review exception handling
 # TODO: post tweet with author.
 # TODO: execute every X minutes to fetch new posts for replying
