@@ -6,8 +6,9 @@ import config
 import time
 import requests
 import logging
-
+import datetime as d
 # set up logging instance
+logger = logging.basicConfig(filename="execution_log.log",level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logger.addHandler(logging.StreamHandler())
@@ -17,10 +18,10 @@ HEADER = "^(Hola, Soy TwargBot y existo para comentar el tweet linkeado y ahorra
 FOOTER = "\n\n &nbsp; \n\n^[Source](https://github.com/Ambro17/TwitterBot) ^| " \
          "^[Creador](https://github.com/Ambro17) ^| " \
          "^[Feedback](https://docs.google.com/forms/d/e/1FAIpQLSd5MkOrULTiVjjFWCqAXkJFvVU034vE44l19ot72rxYqE096Q/viewform) ^| " \
-         " ^(Ahora aprendí poner el autor del twitt!)"
+         " ^(Ahora aprendí a poner el autor del twitt!)"
 
 # DATABASE Initialization
-conn = sqlite3.connect('replies5.db')
+conn = sqlite3.connect(config.DB_PATH)
 c = conn.cursor()
 
 # Reddit API initialization
@@ -89,10 +90,6 @@ def unshorten_url(url):
     return requests.head(url, allow_redirects=True).url
 
 
-def has_shortened_links(atweet):
-    return SHORTENER_URLS.search(atweet)
-
-
 def is_tweet(post):
     # si match_obj es distinto de None, significa que la url es la de un tweet
     match_obj = TWITTER_REGEX_URL.match(post.url)
@@ -113,21 +110,6 @@ def quote(text):
     return f">{text}"
 
 
-def get_image_url(status):
-    """
-        Navega el json en busca del link a la imagen.
-        entity_dict (dict): Diccionario que contiene bajo ["media"] una *lista*
-                            con toddo el contenido 'media'
-        media_dict (dict): Diccionario que contiene el contenido 'media'
-        img_url (str): URL de la imagen, alojada bajo la clave 'media_url_https' del "inner_dict"
-    """
-    entity_dict = status.entities
-    media_dict = entity_dict["media"][0]
-    #logger.debug(f"Media dict: {media_dict}")
-    img_url = media_dict["media_url_https"]
-    return img_url
-
-
 def upload_to_imgur(url):
     response = requests.request("POST", IMGUR_BASE_URL, data=url,
                                 headers=config.IMGUR_AUTH_HEADER)
@@ -137,8 +119,7 @@ def upload_to_imgur(url):
 
 
 def sign(twstr):
-    twstr2 = HEADER + twstr + FOOTER
-    return twstr2
+    return HEADER + twstr + FOOTER
 
 
 def reddit_format_url(bare_url, visible_name):
@@ -203,7 +184,7 @@ def replace_links(status):
     return tweetstr
 
 
-def get_links(status):
+def get_media(status):
     videos, images = [], []
     status = twitter.get_status(status.id, tweet_mode="extended")
     if  has_media(status):
@@ -221,10 +202,11 @@ def get_links(status):
 def remove_shortened_links(status):
     tweetstr = status.full_text
     for match in SHORTENER_URLS.finditer(tweetstr):
+        #if not img or video
         short_url = matched_substring(match)
+        expanded_url = unshorten_url(short_url)
         tweetstr = tweetstr.replace(short_url,"")
     return tweetstr
-
 
 
 def add_media_to_tweet(imgs, vids, original_tweet):
@@ -237,14 +219,31 @@ def add_media_to_tweet(imgs, vids, original_tweet):
 
 
 def get_author(status):
-    return status.user.name
+    author_and_display_name = f"{status.user.name}  @{status.user.screen_name}"
+    return author_and_display_name
+
 
 def wrap_author(author, twstr):
     return f">**{author}**\n\n >{twstr}"
 
+
+def is_external_url(url):
+    logger.info(f"URL ha determinar if externa {url}")
+    pass
+
+
+def get_external_urls(status):
+    unusedcopy = status
+    for match in SHORTENER_URLS.finditer(unusedcopy.full_text):
+        short_url = matched_substring(match)
+        expanded_url = unshorten_url(short_url)
+        if is_external_url(expanded_url):
+            tweetstr2 = unusedcopy.full_text.replace(short_url, expanded_url)
+    pass
+
 def parse_tweet(status):
-    videos, imagenes = get_links(status)
-    print("Ya obtuve videos e imagenes")
+    videos, imagenes = get_media(status)
+    ext_urls = get_external_urls(status)
     clean_tweet = remove_shortened_links(status)
     tweet = add_media_to_tweet(videos, imagenes, clean_tweet)
     author = get_author(status)
@@ -260,13 +259,13 @@ def read_tweet(post):
     return comment_tweet
 
 
-def comment_post2(post, tweetstr):
+def comment_post(post, tweetstr):
     post.reply(tweetstr)
     add_to_replied(post)
 
 
 ### DEPRECATED - delegated into read_tweet and comment_tweet
-def comment_post(apost):
+def deprecated_comment_post(apost):
     logger.info("Preparandome para comentar..")
     status_id = extract_status_id(apost.url)
     try:
@@ -290,22 +289,24 @@ def comment_post(apost):
         print(f"APIException: {RateLimit.reason}")
 ###
 
+
 def there_is_a_match(arg):
     return arg is not None
 
 
-def buscar_tweets(subreddit='twargbot', cant=5):
+def buscar_tweets(subreddit='argentina', cant=20):
     subreddit = bot.subreddit(subreddit)
     logger.info(f"Buscando tweets en los primeros {cant} posts de /r/{subreddit}...")
     for i, post in enumerate(subreddit.new(limit=cant)):
         if not on_visited_db(post):
             title = post.title
-            print(f"Analizando post {i+1}: {title}...")
+            print(f"Analizando post {i+1}: {post.title}...")
             if is_tweet(post) and not replied_db(post):
                 try:
                     red_tweet = read_tweet(post)
-                    comment_post2(post, red_tweet)
-                    print(f"Link al post comentado: https://www.reddit.com/{post}")
+                    comment_post(post, red_tweet)
+                    new_comments.append(f"https://www.reddit.com/{post}")
+                    logger.info(f"Commented on post: https://www.reddit.com/{post}")
                 except (tweepy.error.TweepError, praw.exceptions.APIException) as e:
                     logger.error(f"No pude comentar el post {post.title} con link https://www.reddit.com/{post} ")
                     logger.error(e)
@@ -318,8 +319,9 @@ def buscar_tweets(subreddit='twargbot', cant=5):
 
 
 # MAIN
-buscar_tweets(subreddit="twargbot",cant=5)
-logger.error("AÑADILO A LA BASE DE REPLICADOS!!!")
-# TODO: Review exception handling
-# TODO: post tweet with author.
-# TODO: execute every X minutes to fetch new posts for replying
+new_comments = []
+t = d.datetime.now()
+logger.info(f"\t\t\t\t\t Comencé ejecución a las {t}")
+buscar_tweets(subreddit="argentina")
+logger.info(f"Nuevos comentarios = {new_comments}")
+logger.info(f"\t\t\t\t\t Finalicé ejecución a las {t}")
