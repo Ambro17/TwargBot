@@ -18,7 +18,7 @@ HEADER = "^(Hola, Soy TwargBot y existo para comentar el tweet linkeado y ahorra
 FOOTER = "\n\n &nbsp; \n\n^[Source](https://github.com/Ambro17/TwitterBot) ^| " \
          "^[Creador](https://github.com/Ambro17) ^| " \
          "^[Feedback](https://docs.google.com/forms/d/e/1FAIpQLSd5MkOrULTiVjjFWCqAXkJFvVU034vE44l19ot72rxYqE096Q/viewform) ^| " \
-         " ^(Ahora aprendí a poner el autor del twitt!)"
+         " ^(Mi coeficiente de vanidad ha sido reconfigurado!)"
 
 # DATABASE Initialization
 conn = sqlite3.connect(config.DB_PATH)
@@ -56,6 +56,8 @@ def is_image(mediadict):
 def redir_status(stat):
     return stat in [300, 301, 302, 303, 304, 305, 306, 307, 308]
 
+def there_is_a_match(arg):
+    return arg is not None
 
 def replied_db(post):
     c.execute("SELECT * FROM replies5 WHERE "
@@ -117,9 +119,10 @@ def upload_to_imgur(url):
     link = jsondict["data"]["link"]
     return link
 
+BLANK_LINE = "\n\n &nbsp; \n\n"
 
 def sign(twstr):
-    return HEADER + twstr + FOOTER
+    return BLANK_LINE + twstr + FOOTER
 
 
 def reddit_format_url(bare_url, visible_name):
@@ -152,6 +155,30 @@ def expand_tweet_urls(original_str):
     return original_str
 # ----------
 
+### DEPRECATED - delegated into read_tweet and comment_tweet
+def deprecated_comment_post(apost):
+    logger.info("Preparandome para comentar..")
+    status_id = extract_status_id(apost.url)
+    try:
+        status = twitter.get_status(status_id, tweet_mode="extended")
+        logger.debug("Parseando status...")
+        parsed_tweet = parse_tweet(status)
+        logger.debug("Parseo exitoso")
+        apost.reply(parsed_tweet)
+        logger.info("Comenté  con éxito.")
+        add_to_replied(apost)
+        logger.info("Sleeping 20 seconds to avoid exceding rate limit")
+        time.sleep(20)
+
+    except tweepy.error.TweepError as StatusNotFound:
+        print(f"Status {status_id} could not be found. Maybe it was deleted?")
+        print(f"Exception code {StatusNotFound.api_code},"
+              f" description: {StatusNotFound.reason}")
+
+    except praw.exceptions.APIException as RateLimit:
+        print(f"Couldn't reply on post {REDDIT_URL}{apost.id}")
+        print(f"APIException: {RateLimit.reason}")
+###
 
 def matched_substring(matchobj):
     """
@@ -264,42 +291,12 @@ def comment_post(post, tweetstr):
     add_to_replied(post)
 
 
-### DEPRECATED - delegated into read_tweet and comment_tweet
-def deprecated_comment_post(apost):
-    logger.info("Preparandome para comentar..")
-    status_id = extract_status_id(apost.url)
-    try:
-        status = twitter.get_status(status_id, tweet_mode="extended")
-        logger.debug("Parseando status...")
-        parsed_tweet = parse_tweet(status)
-        logger.debug("Parseo exitoso")
-        apost.reply(parsed_tweet)
-        logger.info("Comenté  con éxito.")
-        add_to_replied(apost)
-        logger.info("Sleeping 20 seconds to avoid exceding rate limit")
-        time.sleep(20)
 
-    except tweepy.error.TweepError as StatusNotFound:
-        print(f"Status {status_id} could not be found. Maybe it was deleted?")
-        print(f"Exception code {StatusNotFound.api_code},"
-              f" description: {StatusNotFound.reason}")
-
-    except praw.exceptions.APIException as RateLimit:
-        print(f"Couldn't reply on post {REDDIT_URL}{apost.id}")
-        print(f"APIException: {RateLimit.reason}")
-###
-
-
-def there_is_a_match(arg):
-    return arg is not None
-
-
-def buscar_tweets(subreddit='argentina', cant=20):
+def buscar_tweets(subreddit='argentina', cant=30):
     subreddit = bot.subreddit(subreddit)
-    logger.info(f"Buscando tweets en los primeros {cant} posts de /r/{subreddit}...")
+    logger.info(f"\tBuscando tweets en los primeros {cant} posts de /r/{subreddit}...")
     for i, post in enumerate(subreddit.new(limit=cant)):
         if not on_visited_db(post):
-            title = post.title
             print(f"Analizando post {i+1}: {post.title}...")
             if is_tweet(post) and not replied_db(post):
                 try:
@@ -322,6 +319,6 @@ def buscar_tweets(subreddit='argentina', cant=20):
 new_comments = []
 t = d.datetime.now()
 logger.info(f"\t\t\t\t\t Comencé ejecución a las {t}")
-buscar_tweets(subreddit="argentina")
+buscar_tweets(subreddit="twargbot")
 logger.info(f"Nuevos comentarios = {new_comments}")
 logger.info(f"\t\t\t\t\t Finalicé ejecución a las {t}")
