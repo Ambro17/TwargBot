@@ -1,3 +1,9 @@
 praw.ini
 config.py
 __pycache__
+.idea
+execution_log.log
+backup.py
+Design Decisions.txt
+replies5.db
+.gitignore
