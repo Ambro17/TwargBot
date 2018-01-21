@@ -11,7 +11,7 @@ Pero aún más fácil es no tener que abrir el link y directamente ver el tweet 
 Un Redditero entusiasta del lenguaje python que cree en el código open-source.
 
 ### Feedback
-Si tenés alguna sugerencia, ves algún comportamiento inusual bot, o te gustaría que el bot hiciera algo distinto podés complicar el [siguiente form](https://docs.google.com/forms/d/e/1FAIpQLSd5MkOrULTiVjjFWCqAXkJFvVU034vE44l19ot72rxYqE096Q/viewform)
+Si tenés alguna sugerencia, ves algún comportamiento inusual bot, o te gustaría que el bot hiciera algo distinto podés completar el [siguiente form](https://docs.google.com/forms/d/e/1FAIpQLSd5MkOrULTiVjjFWCqAXkJFvVU034vE44l19ot72rxYqE096Q/viewform)
 
 ### Futuras mejoras
 * Postear link de video a streamable
