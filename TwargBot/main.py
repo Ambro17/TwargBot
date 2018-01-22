@@ -13,10 +13,12 @@ from formatter import RedditFormatter
 from status import MinimalStatus
 
 
-logger = logging.basicConfig(filename="twoop-15-enero.log",level=logging.DEBUG)
+logger = logging.basicConfig(
+    filename="twoop-15-enero.log", level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logger.addHandler(logging.StreamHandler())
+
 
 class TwargBot(object):
 
@@ -24,16 +26,18 @@ class TwargBot(object):
     auth = tweepy.OAuthHandler(config.API_KEY, config.API_SECRET)
     auth.set_access_token(config.TOKEN, config.TOKEN_SECRET)
     twitterAPI = tweepy.API(auth)
+
     #  Praw Initialization
     twargbot = praw.Reddit("TwArgINI")
+
     #  Establish DB connection
     db_connection = sqlite3.connect('posts.db',
                                     detect_types=sqlite3.PARSE_DECLTYPES |
-                                               sqlite3.PARSE_COLNAMES)
+                                    sqlite3.PARSE_COLNAMES)
 
     # REGEX
-    #TW_REGEX_URL = re.compile("https?:\/\/twitter\.com\/.*")
-    TW_REGEX_URL = re.compile(r'https?://twitter.com/[a-zA-Z0-9]+/status/([0-9]+)/*')
+    TW_REGEX_URL = re.compile(
+        r'https?://twitter.com/[a-zA-Z0-9]+/status/([0-9]+)/*')
 
     def __init__(self, subreddit="twargbot"):
         self.subreddit = self.twargbot.subreddit(subreddit)
@@ -48,7 +52,8 @@ class TwargBot(object):
 
     def _get_status_from_twitter_post(self, post):
         status_id = self.get_status_id(post.url)
-        status_obj = self.twitterAPI.get_status(status_id, tweet_mode="extended")
+        status_obj = self.twitterAPI.get_status(
+            status_id, tweet_mode="extended")
         return MinimalStatus(status_obj)
 
     def filter_tweet_posts(self):
@@ -58,20 +63,24 @@ class TwargBot(object):
         # Determines if a post is a not visited tw post
         return self._is_tweet(post) and not self.visited_db(post)
 
-    def comment_post(self, post):
-        status = self._get_status_from_twitter_post(post)
+    def r_edit_tweet(self, status):
         rformatter = RedditFormatter()
         r_edited_tweet = rformatter.format(status)
-        post.reply(r_edited_tweet)
-        print(f"\t\tREPLIED! https://reddit.com/{post.id}")
+        return r_edited_tweet
+
+    def comment_post(self, post):
+        status = self._get_status_from_twitter_post(post)
+        redited_tweet = self.r_edit_tweet(status)
+        post.reply(redited_tweet)
 
     def comment_tweet_posts(self, cant=30):
         for post in self.subreddit.new(limit=cant):
-            logger.info(f"Visiting post https://reddit.com/{post.id} - {post.title}")
+            logger.info(f"Visiting post https://reddit.com/{post.id}")
             if not self.visited_db(post):
                 if self._is_tweet(post):
                     self.comment_post(post)
                     self.add_to_db(post, is_tweet=1)
+                    logger.info(f"Replied on https://reddit.com/{post.id}")
                 else:
                     self.add_to_db(post, is_tweet=0)
             else:

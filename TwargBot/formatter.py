@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import re
 from urllib.parse import urlparse
-
+from imgur import Imgur
 
 class RedditFormatter():
     FOOTER_TEMPLATE = (
@@ -13,8 +13,11 @@ class RedditFormatter():
     REDDIT_BREAK = "\n\n"
     BLANK_LINE = "\n\n &nbsp; \n\n"
     COMMENT_TEMPLATE = (
-            BLANK_LINE + "{author_data}" + REDDIT_BREAK + "{message}" + REDDIT_BREAK + "{rt_and_favs}"+ BLANK_LINE +
-            "{media_data}" + BLANK_LINE + "{signature}"
+            BLANK_LINE + "{author_data}" + REDDIT_BREAK + 
+            "{message}" + REDDIT_BREAK +
+             "{rt_and_favs}"+ BLANK_LINE +
+            "{media_data}" + BLANK_LINE + 
+            "{signature}"
     )
 
     TW_SHORT_URL = re.compile("(https?://t.co/[a-zA-Z0-9]*)")
@@ -68,8 +71,9 @@ class RedditFormatter():
                 text += 'Imagen del tweet: ' + self.reddit_format_link(
                     "Imagen", images[0])
             else:
-                mapped_links = self.reddit_format_links(images)
-                text += 'Imagenes del tweet: ' + ' '.join(mapped_links)
+                album_link = self.create_imgur_album(images)
+                album_formatted = self.reddit_format_link("Album", album_link)
+                text += 'Imagenes del tweet: ' + album_formatted
         elif video:
             text += 'Video del tweet: ' + self.reddit_format_link("Video",
                                                                   video[0])
@@ -77,6 +81,11 @@ class RedditFormatter():
             text += 'Gif del tweet: ' + self.reddit_format_link("Gif", gif[0])
 
         return text
+
+    def create_imgur_album(self, image_urls):
+        album_link = Imgur().upload_images_to_album(image_urls)
+        return album_link
+
 
     def format_signature(self, status):
         sign_text = self.FOOTER_TEMPLATE.format(tweet_link=status.tweet_link())
@@ -117,7 +126,6 @@ class RedditFormatter():
             full_url = status.unshorten_url(url)
             domain = urlparse(full_url)[1]
             enriched_url = f"[{domain}]({full_url})"
-            # bug con dos urls, bug previo?
             status.text = status.text.replace(url, enriched_url)
 
 
