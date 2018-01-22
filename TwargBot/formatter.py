@@ -8,7 +8,7 @@ class RedditFormatter():
         "[Tweet-Citado]({tweet_link})" 
         " | [Source](https://github.com/Ambro17/TwitterBot)" 
         " | [Feedback](https://docs.google.com/forms/d/e/1FAIpQLSd5MkOrULTiVjjFWCqAXkJFvVU034vE44l19ot72rxYqE096Q/viewform)"
-        " | Desarrollado en 🇦🇷 "
+        " | Ahora sé crear albumes"
                        )
     REDDIT_BREAK = "\n\n"
     BLANK_LINE = "\n\n &nbsp; \n\n"

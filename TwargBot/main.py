@@ -14,7 +14,7 @@ from status import MinimalStatus
 
 
 logger = logging.basicConfig(
-    filename="twoop-15-enero.log", level=logging.DEBUG)
+    filename="twoop-22/01/2018.log", level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logger.addHandler(logging.StreamHandler())
