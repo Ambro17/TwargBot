@@ -21,7 +21,8 @@ logger.setLevel(logging.DEBUG)
 logger.addHandler(logging.StreamHandler())
 
 PARENT_FOLDER = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(PARENT_FOLDER, "db/posts.db")
+DB_PATH = os.path.join(PARENT_FOLDER, "db")
+
 class TwargBot(object):
 
     # Tweepy authentication
@@ -33,7 +34,7 @@ class TwargBot(object):
     twargbot = praw.Reddit("TwArgINI")
 
     #  Establish DB connection
-    db_connection = sqlite3.connect('posts.db',
+    db_connection = sqlite3.connect(os.path.join(DB_PATH, 'posts.db'),
                                     detect_types=sqlite3.PARSE_DECLTYPES |
                                     sqlite3.PARSE_COLNAMES)
 
