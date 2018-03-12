@@ -3,5 +3,5 @@ config.py
 __pycache__
 .idea/
 twarg.log
-db
+db/
 .gitignore
