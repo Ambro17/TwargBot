@@ -14,7 +14,7 @@ from status import MinimalStatus
 
 
 logger = logging.basicConfig(
-    filename="twoop-22/01/2018.log", level=logging.DEBUG)
+    filename="twarg.log", level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logger.addHandler(logging.StreamHandler())
@@ -84,7 +84,7 @@ class TwargBot(object):
                 else:
                     self.add_to_db(post, is_tweet=0)
             else:
-                logger.info(f"Ya visité https://reddit.com/{post.id}")
+                logger.info("Already visited.")
 
     def add_to_db(self, post, is_tweet=0):
         now = datetime.datetime.now()

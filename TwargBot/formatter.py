@@ -61,7 +61,7 @@ class RedditFormatter():
 
     def meta_tweet(self, status):
         rt, favs = status.retweets, status.favorited
-        return self.quote(f"♻️ {rt} ❤️ {favs}")
+        return self.quote(f"🔁️ {rt} ❤️ {favs}")
     
     def format_media(self, status):
         images, video, gif = status.get_all_media()
@@ -149,3 +149,5 @@ class RedditFormatter():
         mapped_list = [f"{'^'*level}{word}" for word in astr.split()]
         rejoined_str = ' '.join(mapped_list)
         return rejoined_str
+
+    
