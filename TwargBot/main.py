@@ -4,6 +4,7 @@ import sqlite3
 import datetime
 import logging
 from datetime import datetime as d
+import os
 
 import tweepy
 import praw
@@ -19,7 +20,8 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logger.addHandler(logging.StreamHandler())
 
-
+PARENT_FOLDER = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(PARENT_FOLDER, "db/posts.db")
 class TwargBot(object):
 
     # Tweepy authentication
@@ -39,16 +41,15 @@ class TwargBot(object):
     TW_REGEX_URL = re.compile(
         r'https?://twitter.com/[a-zA-Z0-9]+/status/([0-9]+)/*')
 
-    def __init__(self, subreddit="twargbot"):
+    def __init__(self, subreddit="twargbot", create_db=False):
         self.subreddit = self.twargbot.subreddit(subreddit)
         self.db_cursor = self.db_connection.cursor()
-        """"
-        self.db_cursor.execute('''CREATE TABLE posts
+        if create_db:
+            self.db_cursor.execute('''CREATE TABLE posts
                                (post_id text, title text, author text,
                                link text,
                                is_tweet integer, date timestamp, subreddit text)''')
-        """
-        self.db_connection.commit()
+            self.db_connection.commit()
 
     def _get_status_from_twitter_post(self, post):
         status_id = self.get_status_id(post.url)
@@ -114,7 +115,7 @@ class TwargBot(object):
 logger.info(f"\t\t\t\t\t Comencé ejecución a las {d.now()}")
 
 if __name__ == '__main__':
-    twargbot = TwargBot('argentina')
+    twargbot = TwargBot('argentina+twargbot')
     twargbot.comment_tweet_posts()
 
 logger.info(f"\t\t\t\t\t Finalicé ejecución a las {d.now()}")
